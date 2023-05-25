@@ -1,0 +1,56 @@
+- job:
+    # Supported job kinds:
+    # - continuous : will be run on each commit
+    # - package : will be run on demand only
+    kind: continuous
+    type: generic
+    project-name: invn.chirp-micro-driver
+    description: |
+        Continuous build of project <b>invn.chirp-micro-driver</b>.<br/>
+    environments:
+        ussjc-wbuild04:
+           - vs2017
+    android-versions:
+    android-abis:
+    build-steps: 
+        win: |
+            call test\jenkins_build.bat
+            exit
+
+    documentation:
+        path: "build-$environment/doc-output/"
+    test-output:
+        path: "build-$environment/Test-invn.chirp-micro-driver.xml"
+    info-output: 
+        path: "build-$environment/info.html"
+    trigger: any-event
+    plot:
+      data-file: "**/*.map.jenkins.csv"
+      environment: iar-cm4-fpu
+      title: "Trend of code size for chirpmicro driver in IAR dummy project"
+      yaxis-name: "Code Size"
+      display-data-table: enabled
+
+- job:
+    # Supported job kinds:
+    # - continuous : will be run on each commit
+    # - package : will be run on demand only
+    kind: package
+    type: generic
+    project-name: invn.chirp-micro-driver
+    description: |
+        Package build of project <b>invn.chirp-micro-driver</b>.<br/>
+    environments:
+        ussjc-wbuild04:
+           - vs2017
+    android-versions:
+    android-abis:
+    build-steps: 
+        win: |
+            call test\jenkins_build.bat
+            exit
+
+    test-output:
+        path: "build-$environment/Test-invn.chirp-micro-driver.xml"
+    info-output: 
+        path: "build-$environment/info.html"
