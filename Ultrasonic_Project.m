@@ -9,22 +9,16 @@ clear; clc; close all;
 
 %% Connect to board
 % Open serial port. Change COM5 to whichever COM port your board is using.
-s = serialport("COM19", 1000000);
+s = serialport("/dev/tty.usbmodem102", 1000000);
 
 %%
-numMeasures = 1; % how many captures to do
-numDevices = 1; % how many sensors are plugged in
-distMeasure = 1;
-[AscanData, params] = GetAscanDataFromCH201(numDevices, numMeasures, distMeasure, s);
-sensorAscan = squeeze(abs(AscanData(:,1,1,:)+1j*AscanData(:,1,2,:)))';
-plot(sensorAscan);
+% numMeasures = 1; % how many captures to do
+% numDevices = 1; % how many sensors are plugged in
+% distMeasure = 5;
+% [AscanData, params] = GetAscanDataFromCH201(numDevices, numMeasures, distMeasure, s);
+% sensorAscan = squeeze(abs(AscanData(:,1,1,:)+1j*AscanData(:,1,2,:)))';
+% plot(sensorAscan);
 
-%% Musical Instrument
-% AscanData = (numDevices, numMeasures, numSamples);
-% params = (numDevices, numMeasures, 6);
-% param reported as (Sensor #, Range in mm,  Amp, Samples, Op_freq Hz, Bandwidth Hz)
-
-% Include any setup code you want to run before the loop here.
 %% SECTION 4 - LOCALIZATION w/ IMAGE FORMATION
 
 file_prefix = 'localization';
@@ -42,7 +36,7 @@ set(gca, 'fontsize', 16);
 
 for idx = 1:numDevices
     
-    [data_pb, Fs] = upconv(squeeze(AscanData(idx,:,1,:)), squeeze(AscanData(idx,:,1,:)), params(idx,1,5));
+    [data_pb, Fs] = upconv(squeeze(AscanData(idx,:,1,:)), squeeze(AscanData(idx,:,2,:)), params(idx,1,5));
     %data = ParseDataSonicLink2(file_prefix, sensor_id);
     %data_pb = data.pb;
     %Fs = data.Fs;
@@ -108,21 +102,21 @@ yticks([1 yticks])
 yticklabels(floor(yticks*dx*100))
 xticklabels(ceil(abs(xticks-Nx/2)*dx*100))
 %saveas(gcf, 'plots/localization combined backprojection.png');
-%% real time a scan %%
-numMeasures = 1; % how many captures to do
-numDevices = 3; % how many sensors are plugged in
-distMeasure = 2;
-figure(1);
-flush(s); % flush serial buffer so we don't read old buffered data
-while true % infinite loop, hit the Stop button in Matlab to get out of it
-    [AscanData, params] = GetAscanDataFromCH201(numDevices, numMeasures, distMeasure, s);
-    sensorAscan = squeeze(abs(AscanData(:,1,1,:)+1j*AscanData(:,1,2,:)))';
-    plot(sensorAscan);
-
-    %%% YOUR CODE HERE %%%
-    
-    %%% END OF YOUR CODE %%%
-end
+% %% real time a scan %%
+% numMeasures = 1; % how many captures to do
+% numDevices = 3; % how many sensors are plugged in
+% distMeasure = 2;
+% figure(1);
+% flush(s); % flush serial buffer so we don't read old buffered data
+% while true % infinite loop, hit the Stop button in Matlab to get out of it
+%     [AscanData, params] = GetAscanDataFromCH201(numDevices, numMeasures, distMeasure, s);
+%     sensorAscan = squeeze(abs(AscanData(:,1,1,:)+1j*AscanData(:,1,2,:)))';
+%     plot(sensorAscan);
+% 
+%     %%% YOUR CODE HERE %%%
+% 
+%     %%% END OF YOUR CODE %%%
+% end
 
 %% close serial port
 clear s
