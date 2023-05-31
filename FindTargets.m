@@ -1,10 +1,20 @@
 function targets = FindTargets(numTargets, Im_final)
     maxAmp = max(Im_final);
-    Im_reduced = Im_final .* double(Im_final>maxAmp/1.3);
-    Im_red_binary = Im_reduced>0;
-    Im_red_binary = bwlabel(Im_red_binary);
-    
-    numFoundTargets = max(Im_red_binary,[],"all","linear");
+    figure;
+    imagesc(Im_final);
+    numFoundTargets = 0;
+    thresh = 2;
+    while numFoundTargets ~= numTargets & thresh >= 1
+        thresh = thresh - 0.1;
+        Im_reduced = Im_final .* double(Im_final>maxAmp/thresh);
+        Im_red_binary = Im_reduced>0;
+        Im_red_binary = bwlabel(Im_red_binary);
+        numFoundTargets = max(Im_red_binary,[],"all","linear");
+%         figure;
+%         imagesc(Im_red_binary);
+    end
+    figure;
+    imagesc(Im_red_binary);
     points = zeros(numFoundTargets,3);
     for idx = 1:numFoundTargets
         temp = Im_reduced .* double(Im_red_binary==idx);
@@ -18,4 +28,6 @@ function targets = FindTargets(numTargets, Im_final)
     I=flip(I);
     targets = zeros(numTargets,2);
     targets = points(I(1:numTargets),:);
+    [M,I] = sort(targets(:,2));
+    targets = targets(I,:);
 end
