@@ -11,17 +11,22 @@ numTargets = 2;
 receiver_locs = [0 -0.07 0.07];
 source_locs = [0 -0.07 0.07];
 
-
 c = 343; % speed of sound, m/s
 
 %% load data
-load('/Users/robertcollins/Documents/GitHub/ultrasonic-localizer/Data 5-26/10Avg,7cm Spaceing,2m_max,2target-dif,take2.mat')
+load('/Users/robertcollins/Documents/GitHub/ultrasonic-localizer/Data 5-26/20Avg,7cm Spaceing,2m_max,2target,take1.mat')
 numMeasures = size(params,2);
 numDevices= size(params,1);
 
 % [AscanData, params] = GetAscanDataFromCH201(numDevices, numMeasures, distMeasure, s);
-sensorAscan = squeeze(abs(AscanData(:,1,1,:)+1j*AscanData(:,1,2,:)))';
+
+% AscanData:
+% [device, measure, [I, Q], samples]
+% Get Ascan from raw data
+sensorAscan = squeeze(mean(abs(AscanData(:,:,1,:)+1j*AscanData(:,:,2,:)),2))';
 dist = (1:size(sensorAscan,1)) / 60;
+
+% plot raw ascan
 plot(dist, sensorAscan); hold on;
 
 %% find peaks
@@ -34,10 +39,12 @@ peaks = [false(1,numDevices); peaks; false(1,numDevices)];
 peaks(1:20,:) = false;
 
 % mask out peaks below mean
-peaks = peaks & sensorAscan > mean(sensorAscan);
+ascan_means = mean(sensorAscan);
+peaks = peaks & sensorAscan > ascan_means;
 
 % select peaks
 peakBounds = zeros(numTargets, 2, numDevices);
+thold_frac = 0;
 for ii_dev=1:numDevices
     % mapping of peak indicies to ascan indicies
     idx_map = find(peaks(:,ii_dev));
@@ -46,7 +53,7 @@ for ii_dev=1:numDevices
     this_peakBounds = zeros(size(idx_map,1),2);
     for ii_peak = 1:size(idx_map,1)
         idx_peak = idx_map(ii_peak);
-        thold = sensorAscan(idx_peak) * 0.25;
+        thold = (sensorAscan(idx_peak) - ascan_means(ii_dev))* thold_frac + ascan_means(ii_dev);
 
         this_peakBounds(ii_peak,1) = ...
             find(sensorAscan(1:idx_peak, ii_dev) < thold, 1, 'last');
@@ -74,16 +81,37 @@ if 1
     end
 end
 
-%% pick out a scan of each peak
-peakSeries = zeros(size(sensorAscan,1),numTargets, numDevices);
+%% Separate A-Scan of each peak, normalize by device
+scaledAscanPeaks = zeros(size(sensorAscan,1),numTargets, numDevices);
+
+scaledIQ = zeros(size(AscanData));
+
 %peakSeries = zeros(size(sensorAscan,1),numTargets * numDevices);
 for ii_dev = 1:numDevices
+    % initialize device mask
+    device_mask = zeros(size(sensorAscan,1),1);
+    
+    % get maximum ascan value for this device
+    device_max = max(sensorAscan(peaks(:,ii_dev),ii_dev));
     for ii_targ = 1:numTargets
+        % generate mask for this target
         idx = 1:size(sensorAscan,1);
         mask = (idx)>peakBounds(ii_targ,1,ii_dev) & (idx)<peakBounds(ii_targ,2,ii_dev);
-        peakSeries(:,ii_targ, ii_dev) = sensorAscan(:,ii_dev) .* double(mask)';
+        
+        % apply mask to Ascan to determine scaling
+        vals = sensorAscan(:,ii_dev) .* double(mask)';
+        scaling = device_max ./ max(vals);
+        device_mask = device_mask + double(mask)' .* scaling;
+
+        scaledAscanPeaks(:,ii_targ, ii_dev) = vals .* scaling;
     end
+    device_mask = repmat(reshape(device_mask, 1, 1, size(AscanData,4)),numMeasures, 2);
+    scaledIQ(ii_dev,:,:,:) = squeeze(AscanData(ii_dev, :, :, :)) .* device_mask;
 end
+
+figure
+plot(dist, squeeze(mean(abs(scaledIQ(:,:,1,:)+1j*scaledIQ(:,:,2,:)),2))');
+
 % 
 % [c, lags] = xcorr( ...
 %     reshape(peakSeries, ...
@@ -91,26 +119,14 @@ end
 %     ));
 % c = reshape(c,[size(c,1),sqrt(size(c,2)), sqrt(size(c,2))]);
 
-
-
-% 
-% xcorrs = 
-% for ii_dev = 1:numDevices
-%     for jj_dev = 1:numDevices
-%         if ii_dev==jj_dev; continue; end
-% 
-% 
-%     end
-% end
-
 %% upconvert
 timeseries = [];
 testPB = (peakBounds-ones(size(peakBounds))) * 64 + ones(size(peakBounds));
 for ii_dev=1:numDevices
     fc = params(ii_dev, 1, 5);
     [data_pb, Fs] = upconv( ...
-        squeeze(AscanData(ii_dev, :, 1, :)), ...
-        squeeze(AscanData(ii_dev, :, 2, :)), ...
+        squeeze(scaledIQ(ii_dev, :, 1, :)), ...
+        squeeze(scaledIQ(ii_dev, :, 2, :)), ...
         fc);
     timeseries(:,ii_dev) = data_pb;
 end

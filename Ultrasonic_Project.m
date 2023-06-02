@@ -1,7 +1,7 @@
 %% EE 292Q - Ultrasonic Project
 % Group members: ADD YOUR NAMES HERE
 
-clear; clc; close all;
+% clear; clc; close all;
 
 % Before running this code, make sure you have flashed the HelloChirp
 % firmware to the ultrasonic board. Also note that you will need to reflash
@@ -9,13 +9,13 @@ clear; clc; close all;
 
 %% Connect to board
 % Open serial port. Change COM5 to whichever COM port your board is using.
-s = serialport("COM3", 1000000);
+% s = serialport("COM3", 1000000);
 
 %%
 numMeasures = 1; % how many captures to do
 numDevices = 1; % how many sensors are plugged in
 distMeasure = 1;
-[AscanData, params] = GetAscanDataFromCH201(numDevices, numMeasures, distMeasure, s);
+% [AscanData, params] = GetAscanDataFromCH201(numDevices, numMeasures, distMeasure, s);
 sensorAscan = squeeze(abs(AscanData(:,1,1,:)+1j*AscanData(:,1,2,:)))';
 plot(sensorAscan);
 
