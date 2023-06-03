@@ -40,7 +40,7 @@ d = (1:distMeasure*60)/60;
 
 %% TESTING VALUES
 % move these up to proper place when done
-test_rel = [55   -68]*dx; % test value for relative target offset
+test_rel = [25   -52]*dx; % test value for relative target offset
 target_locs = [0,0; test_rel];
 numTargets = 2;
 
@@ -128,10 +128,13 @@ for ii = 1:N
     end
     combined_Im = squeeze(sum(abs(Im),3)).^2;
     
+    % TODO: need convention on orientation of XZ coords 
     % possibly rework FindTargets to take convolution of kernel w/ 
     %   known target offset of the combined image
+    [points, heatmap] = FindTargetsConv(combined_Im, floor(target_locs/dx));
+    
     % Identify targets in backpropgatation image
-    points = FindTargets(numTargets, combined_Im);
+    points2 = FindTargets(numTargets, combined_Im);
     
     % Self-localize
     [x,z] = calcSenorsPos(target_locs, points);
