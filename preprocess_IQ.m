@@ -17,7 +17,7 @@ function [scaledIQ, scaledAscan, deviceAscan] = preprocess_IQ( ...
 self_interference_region = 1:10;
 roi_thold_mean_frac = 0;
 
-exclude_overlaps = 1;
+take_first = 1;
 
 % Identify sizes from raw data
 numDevices = size(rawIQ, 1);
@@ -40,11 +40,11 @@ troughs = [false(1,numDevices); troughs; false(1,numDevices)];
 
 % mask out self interference
 peaks(self_interference_region, :) = false;
-troughs(self_interference_region, :) = troughs;
+troughs(self_interference_region, :) = false;
 
-% mask out peaks below mean value
+% mask out peaks below 125% mean value
 ascan_means = mean(deviceAscan);
-peaks = peaks & deviceAscan > ascan_means;
+peaks = peaks & deviceAscan > 1.25*ascan_means;
 
 % identify regions of interest around peaks
 % [target, [leftbound rightbound], device]
@@ -54,62 +54,76 @@ for ii_dev=1:numDevices
     % mapping of peak indicies to ascan indicies
     % (ascan index) = pidx2aidx(peak index);
     pidx2aidx = find(peaks(:,ii_dev));
+    % get sorted list of peak indicies
+    [peak_vals, pidx_sorted] = sort(deviceAscan(peaks(:,ii_dev),ii_dev),'descend');
 
-    % identify bounds of the peak roi
-    device_rois = zeros(size(pidx2aidx, 1),2);
+    % identify bounds of the peak roi, both peak-trough and peak-mean
+    % device_rois = zeros(size(pidx2aidx, 1),2);
+    pm_rois = zeros(size(pidx2aidx, 1),2);
+    pt_rois = zeros(size(pidx2aidx, 1),2);
     for pidx = 1:size(pidx2aidx)
+        % A-Scan Index of peak
         aidx = pidx2aidx(pidx);
-        thold = (deviceAscan(aidx) - ascan_means(ii_dev)) * roi_thold_mean_frac+ ascan_means(ii_dev);
+        % peak-trough rois
+        pt_rois(pidx,1) = ...
+            find(troughs(1:aidx, ii_dev), 1, 'last');
+        pt_rois(pidx, 2) = aidx - 1 + ...
+            find(troughs(aidx:end, ii_dev), 1, 'first');
         
-        device_rois(pidx, 1) = ...
+        % peak-mean rois
+        thold = (deviceAscan(aidx) - ascan_means(ii_dev)) * roi_thold_mean_frac + ascan_means(ii_dev);
+        pm_rois(pidx, 1) = ...
             find(deviceAscan(1:aidx, ii_dev) < thold, 1, 'last');
-        device_rois(pidx, 2) = aidx -1 + ...
+        pm_rois(pidx, 2) = aidx - 1 + ...
             find(deviceAscan(aidx:end, ii_dev) < thold, 1, 'first');
     end
 
-    % merge overlapping rois 
-    merged_rois = zeros(size(device_rois));
-    merged_rois_pidx = zeros(size(merged_rois,1),1);
+    % merge overlapping rois and sort
+    merged_rois = zeros(size(pm_rois));
+    % merged_rois_pidx = zeros(size(merged_rois,1),1);
     ii_mroi = 1;
-    for ii_roi = 1:size(pidx2aidx)
-        this_roi = device_rois(ii_roi, :);
+
+    % roi indexing
+    if take_first
+        peak_indicies = 1:size(pidx2aidx);
+    else
+        peak_indicies = pidx_sorted;
+    end
+
+    % loop thru each peak, largest to smallest
+    for ii_peak = 1:length(peak_indicies)
+        ii_roi = peak_indicies(ii_peak);
+        this_pt_roi = pt_rois(ii_roi, :);
+        this_pm_roi = pm_rois(ii_roi, :);
+
+        % for now, just taking the pt rois
         if ii_mroi == 1
-            merged_rois(ii_mroi,:) = this_roi;
-            merged_rois_pidx(ii_mroi) = ii_roi;
+            merged_rois(ii_mroi,:) = this_pt_roi;
+            % merged_rois_pidx(ii_mroi) = ii_roi;
+            ii_mroi = ii_mroi + 1;
         else
             overlap = false;
             for jj_mroi = 1:ii_mroi-1
                 that_roi = merged_rois(jj_mroi,:);
-                if this_roi(1) < that_roi(2) && this_roi(2) > that_roi(1)
+                if this_pm_roi(1) < that_roi(2) && this_pm_roi(2) > that_roi(1)
                     overlap = true;
-
                 end
             end
             if ~overlap
-                merged_rois(ii_mroi,:) = this_roi;
-                merged_rois_pidx(ii_mroi) = ii_roi;
+                merged_rois(ii_mroi,:) = this_pt_roi;
+                % merged_rois_pidx(ii_mroi) = ii_roi;
+                ii_mroi = ii_mroi + 1;
             end
         end
-        ii_mroi = ii_mroi + 1;
     end
     
     % trim merged rois
-    merged_rois = merged_rois(all(merged_rois ~= 0,2), :);
-    % sort ROI by maximum
-    roi_maxs = zeros(size(merged_rois, 1),1);
-    for ii_roi = 1:size(roi_maxs, 1)
-        roi_maxs(ii_roi) = max(deviceAscan( ...
-            merged_rois(ii_roi, 1):merged_rois(ii_roi, 2),...
-            ii_dev ...
-            ));
-    end
-    [~, roi_order] = sort(roi_maxs, 'descend');
-    sorted_rois = merged_rois(roi_order, :);
+    % merged_rois = merged_rois(all(merged_rois ~= 0,2), :);
     
-    % output best rois and maximum value
-    num_rois = min(numTargets,size(sorted_rois,1));
-    ascan_rois(1:num_rois,:, ii_dev) = sorted_rois(1:num_rois,:);
-    device_maxs(ii_dev) = roi_maxs(roi_order(1));
+    % output best N rois and maximum device value (for scaling)
+    num_rois = min(numTargets,size(merged_rois,1));
+    ascan_rois(1:num_rois,:, ii_dev) = merged_rois(1:num_rois,:);
+    device_maxs(ii_dev) = peak_vals(1);
 end
 
 %% Mask and Scale Outputs
@@ -121,12 +135,12 @@ for ii_dev = 1:numDevices
     % initialize empty mask for this device
     device_mask = zeros(numSamples,1);
 
-    % combine masks from each ROI, scaled by max val
-    for ii_targ = 1:numTargets
+    % combine masks from each non-zero ROI, scaled by max val
+    for ii_roi = 1:sum(ascan_rois(:,1,ii_dev) ~=0)
         % generate mask for this target
         mask = double( ...
-            (idx)>ascan_rois(ii_targ,1,ii_dev) & ...
-            (idx)<ascan_rois(ii_targ,2,ii_dev) ...
+            (idx)>ascan_rois(ii_roi,1,ii_dev) & ...
+            (idx)<ascan_rois(ii_roi,2,ii_dev) ...
             )';
         
         % apply mask to AScan to determine scaling
@@ -142,7 +156,6 @@ for ii_dev = 1:numDevices
     scaledIQ(ii_dev, :,:,:) = squeeze(rawIQ(ii_dev,:,:,:)) .* IQ_mask;
 
     % apply mask to Ascan
-    % Ascan_mask = 
     scaledAscan(:,ii_dev) = deviceAscan(:,ii_dev) .* device_mask;
 end
 
