@@ -3,76 +3,62 @@
 % EE292Q FINAL PROJECT SPRING 2023
 % 
 
+
 %% SETUP & PARAMETERS
-clear; %close all;
+clear; close all;
 
-serial_port = "/dev/tty.usbmodem102";
-baud = 1000000;
+% physical parameters
+c = 343; % speed of sound, m
+sensor_locs = [-0.07 0 0.07]; % relative sensor x-locations, m
+% target_locs = [0, 0;
+%                0.25, 0.25]; % target [x,z] locations, m
+% numTargets = size(target_locs, 1); % number of targets
 
-file_prefix = 'localization';
-receiver_locs = [-0.07 0 0.07]; % receiver locations, m
+% capture parameters
+% file data parameters
+data_from_file = 1; % if true, load data from directory instead of serial
+input_directory = "test_data/Data 5-26/2targ";
+
+% data_to_file = 0; % if true, output captured data to directory (not implemented)
+% output_directory = "test_data";
+
+% serial parameters
+serial_port = "/dev/tty.usbmodem2102";
+baud = 1000000; % baud rate
 numMeasures = 5; % captures per sensor
 numDevices = 3; % number of sensors
-numTargets = 2;
 distMeasure = 2; % maximum distance measurement, matches firmware
 
-datafromfile = 1;
-
-
-%% INPUT DATA
-if datafromfile
-load('/Users/robertcollins/Documents/GitHub/ultrasonic-localizer/Data 5-26/10Avg,7cm Spaceing,2m_max,2target,take3.mat')
-else
-    % Connect to board
-    s = serialport(serial_port, baud);
-    [AscanData, params] = GetAscanDataFromCH201(numDevices, numMeasures, distMeasure, s);
-    clear s
-end
-
-%% LOCALIZATION LOOP
-
-% preprocess AscanData
-[ppAscanData] = preprocess_ascan(AscanData, numTargets);
-
-ppIm = zeros(400,400,numDevices); % reconstructed image stack
-Im = zeros(400,400,numDevices); % reconstructed image stack
-for ii_dev=1:numDevices
-    % upconvert to time series
-    [data_pb, Fs] = upconv(squeeze(ppAscanData(ii_dev,:,1,:)), squeeze(ppAscanData(ii_dev,:,2,:)), params(ii_dev,1,5));
-    % define time vector
-    t = 0:1/Fs:size(data_pb,2)/Fs - 1/Fs;
-    % compute backprojection
-    ppIm(:,:,ii_dev) = BackProj( ...
-        hilbert(data_pb), ...
-        receiver_locs(ii_dev), ...
-        receiver_locs(ii_dev), ...
-        343,Fs,1.5,1.5 ...
-        );
-
-    % upconvert to time series
-    [data_pb, Fs] = upconv(squeeze(AscanData(ii_dev,:,1,:)), squeeze(AscanData(ii_dev,:,2,:)), params(ii_dev,1,5));
-    % define time vector
-    t = 0:1/Fs:size(data_pb,2)/Fs - 1/Fs;
-    % compute backprojection
-    Im(:,:,ii_dev) = BackProj( ...
-        hilbert(data_pb), ...
-        receiver_locs(ii_dev), ...
-        receiver_locs(ii_dev), ...
-        343,Fs,1.5,1.5 ...
-        );
-end
-
-% Image Parameters
+% plotting parameters
+%   these are also defined in some functions, but here because I'm lazy
+% backprop image parameters
 Nx = 400;
 dx = 1.5/Nx;
 
-% Stack image
-figure(1)
-subplot(1,2,1)
-Im_final = squeeze(sum(abs(Im),3));
-imagesc(abs(Im_final).^2)
-axis image;
-title('Original Backprojection')
+% a scan plot parameters
+d = (1:distMeasure*60)/60;
+
+%% TESTING VALUES
+% move these up to proper place when done
+test_rel = [55   -68]*dx; % test value for relative target offset
+target_locs = [0,0; test_rel];
+numTargets = 2;
+
+%% INITIALIZE SENSOR
+if ~data_from_file
+    s = serialport(serial_port, baud);
+end
+
+%% INITIALIZE PLOTS
+% Target Image
+fig1 = figure(1);
+fig1img1 = imagesc(zeros(Nx,Nx)); hold on;
+fig1tp1 = plot( ...
+    zeros(numTargets,1), ...
+    zeros(numTargets,1), ...
+    'ro','MarkerSize',10,'LineWidth',3 ...
+    );
+title('Target Image')
 xlabel('X (cm)')
 ylabel('Z(cm)')
 xticks([1 xticks])
@@ -80,14 +66,91 @@ yticks([1 yticks])
 yticklabels(floor(yticks*dx*100))
 xticklabels(ceil(abs(xticks-Nx/2)*dx*100))
 
-subplot(1,2,2)
-ppIm_final = squeeze(sum(abs(ppIm),3));
-imagesc(abs(ppIm_final).^2)
-axis image;
-title('Preprocessed Backprojection')
-xlabel('X (cm)')
-ylabel('Z(cm)')
-xticks([1 xticks])
-yticks([1 yticks])
-yticklabels(floor(yticks*dx*100))
-xticklabels(ceil(abs(xticks-Nx/2)*dx*100))
+% A-Scan
+fig2 = figure(2); hold on;
+fig2l1 = plot(d,zeros(size(d,2),numDevices),'LineStyle','--');
+set(gca, 'ColorOrderIndex', 1)
+fig2l2 = plot(d,zeros(size(d,2),numDevices),'LineStyle','-');
+title('Sensor A-Scan')
+xlabel('Distance, m')
+
+% Self localization
+fig3 = figure(3); hold on;
+fig3l1 = plot(target_locs(:,1), target_locs(:,2), ...
+    'ro','MarkerFaceColor','r','MarkerSize',5, ...
+    'DisplayName','Targets');
+fig3l2 = plot(0,0,'gs','DisplayName', 'Sensors');
+xlabel('X, m');
+ylabel('Z, m');
+xlim([-distMeasure, distMeasure])
+ylim([-distMeasure, distMeasure])
+title('Self Localization, m');
+
+%% LOCALIZATION LOOP
+N = 100;
+for ii = 1:N
+    % Capture Ultrasonic Data
+    %   AscanData:
+    % [device, measurement, [I,Q], samples]
+    %   Params:
+    % [device, measurement, [port, range, amp, samples, op_freq, bandwidth]
+    if data_from_file
+        [AscanData, params] = GetAscanDataFromFile(input_directory, ii);
+    else
+        [AscanData, params] = GetAscanDataFromCH201(numDevices, numMeasures, distMeasure, s);
+    end
+
+    % Preprocess IQ Data
+    [ppIQ, scaledAscan, deviceAscan] = preprocess_IQ(AscanData, numTargets);
+
+    % Backpropagate to create image
+    Im = zeros(400, 400, numDevices);
+    for ii_dev = 1:numDevices
+        % upconvert back to sample rate
+        [data_pb, Fs] = upconv( ...
+            squeeze(ppIQ(ii_dev,:,1,:)), ... % I
+            squeeze(ppIQ(ii_dev,:,2,:)), ... % Q
+            params(ii_dev,1,5)); % fs
+        
+        % define time vector
+        t = 0:1/Fs:size(data_pb,2)/Fs - 1/Fs;
+        
+        % backprojection
+        Im(:,:,ii_dev) = BackProj( ...
+            hilbert(data_pb), ... % analytic signal of time series data
+            sensor_locs(ii_dev), ... % receiver location(s)
+            sensor_locs(ii_dev), ... % source location(s)
+            c, ... % speed of sound
+            Fs, ... % ?
+            1.5, ... % x, m
+            1.5 ... % z, m
+            );
+    end
+    combined_Im = squeeze(sum(abs(Im),3)).^2;
+    
+    % possibly rework FindTargets to take convolution of kernel w/ 
+    %   known target offset of the combined image
+    % Identify targets in backpropgatation image
+    points = FindTargets(numTargets, combined_Im);
+    
+    % Self-localize
+    [x,z] = calcSenorsPos(target_locs, points);
+
+    % Update Plots
+    fig1img1.CData = combined_Im;
+    fig1tp1.XData = points(:,1);
+    fig1tp1.YData = points(:,2);
+
+    for lidx=1:length(fig2l1)
+        fig2l1(lidx).YData = deviceAscan(:,lidx);
+        fig2l2(lidx).YData = scaledAscan(:,lidx);
+    end
+    
+    fig3l2.XData = x*dx;
+    fig3l2.YData = z*dx;
+
+    pause(0.01)
+end
+
+%% CLEANUP 
+clear s
