@@ -12,7 +12,12 @@ c = 343; % speed of sound, m
 sensor_locs = [-0.07 0 0.07]; % relative sensor x-locations, m
 % target_locs = [0, 0;
 %                0.25, 0.25]; % target [x,z] locations, m
-% numTargets = size(target_locs, 1); % number of targets
+
+% test values for canned data
+test_rel = [25   -52]*dx; % test value for relative target offset
+target_locs = [0,0; test_rel];
+
+numTargets = size(target_locs, 1); % number of targets
 
 % capture parameters
 % file data parameters
@@ -37,12 +42,6 @@ dx = 1.5/Nx;
 
 % a scan plot parameters
 d = (1:distMeasure*60)/60;
-
-%% TESTING VALUES
-% move these up to proper place when done
-test_rel = [25   -52]*dx; % test value for relative target offset
-target_locs = [0,0; test_rel];
-numTargets = 2;
 
 %% INITIALIZE SENSOR
 if ~data_from_file
