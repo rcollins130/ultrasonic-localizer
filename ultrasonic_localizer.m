@@ -126,11 +126,12 @@ for ii = 1:N
             1.5 ... % z, m
             );
     end
+    % merge backprop images
     combined_Im = squeeze(sum(abs(Im),3)).^2;
     
     % TODO: need convention on orientation of XZ coords 
-    % possibly rework FindTargets to take convolution of kernel w/ 
-    %   known target offset of the combined image
+
+    % itentify targets by xcorr method
     [points, heatmap] = FindTargetsConv(combined_Im, floor(target_locs/dx));
     
     % Identify targets in backpropgatation image
