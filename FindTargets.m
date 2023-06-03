@@ -7,16 +7,16 @@ function targets = FindTargets(numTargets, Im_final)
     %remove ring down artifact
 %     Im_reduced = Im_final .* double(Im_final>maxAmp/thresh);
     while numFoundTargets ~= numTargets & thresh <= 5
-        thresh = thresh + 0.2
+        thresh = thresh + 0.2;
         Im_reduced = Im_final .* double(Im_final>maxAmp/thresh);
         Im_red_binary = Im_reduced>0;
         Im_red_binary = bwlabel(Im_red_binary);
-        numFoundTargets = max(Im_red_binary,[],"all","linear")
+        numFoundTargets = max(Im_red_binary,[],"all","linear");
 %         figure;
 %         imagesc(Im_red_binary);
     end
-    figure;
-    imagesc(Im_red_binary);
+    % figure;
+    % imagesc(Im_red_binary);
     points = zeros(numFoundTargets,3);
     for idx = 1:numFoundTargets
         temp = Im_reduced .* double(Im_red_binary==idx);
