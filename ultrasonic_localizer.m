@@ -10,18 +10,18 @@ clear; close all;
 % physical parameters
 c = 343; % speed of sound, m
 sensor_locs = [-0.07 0 0.07]; % relative sensor x-locations, m
-% target_locs = [0, 0;
-%                0.25, 0.25]; % target [x,z] locations, m
+target_locs = [0, 0;
+               -0.225, 0.225]; % target [x,z] locations, m
 
 % test values for canned data
-test_rel = [25   -52]*dx; % test value for relative target offset
-target_locs = [0,0; test_rel];
-
+% test_rel = [25   -52]*0.00375; % test value for relative target offset
+% target_locs = [0,0; test_rel];
+% 
 numTargets = size(target_locs, 1); % number of targets
 
 % capture parameters
 % file data parameters
-data_from_file = 1; % if true, load data from directory instead of serial
+data_from_file = 0; % if true, load data from directory instead of serial
 input_directory = "test_data/Data 5-26/2targ";
 
 % data_to_file = 0; % if true, output captured data to directory (not implemented)
@@ -86,7 +86,7 @@ ylim([-distMeasure, distMeasure])
 title('Self Localization, m');
 
 %% LOCALIZATION LOOP
-N = 100;
+N = 100000000;
 for ii = 1:N
     % Capture Ultrasonic Data
     %   AscanData:
@@ -131,7 +131,7 @@ for ii = 1:N
     % TODO: need convention on orientation of XZ coords 
 
     % itentify targets by xcorr method
-    [points, heatmap] = FindTargetsConv(combined_Im, floor(target_locs/dx));
+    [points, heatmap] = FindTargetsXcorr(combined_Im, floor(target_locs/dx));
     
     % Identify targets in backpropgatation image
     points2 = FindTargets(numTargets, combined_Im);

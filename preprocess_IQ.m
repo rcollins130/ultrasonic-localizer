@@ -65,10 +65,16 @@ for ii_dev=1:numDevices
         % A-Scan Index of peak
         aidx = pidx2aidx(pidx);
         % peak-trough rois
-        pt_rois(pidx,1) = ...
-            find(troughs(1:aidx, ii_dev), 1, 'last');
-        pt_rois(pidx, 2) = aidx - 1 + ...
-            find(troughs(aidx:end, ii_dev), 1, 'first');
+        lt = find(troughs(1:aidx, ii_dev), 1, 'last');
+        rt = find(troughs(aidx:end, ii_dev), 1, 'first');
+        if isempty(lt)
+            lt = 1;
+        end
+        if isempty(rt)
+            rt = size(troughs,1);
+        end
+        pt_rois(pidx,1) = lt;
+        pt_rois(pidx, 2) = rt;
         
         % peak-mean rois
         thold = (deviceAscan(aidx) - ascan_means(ii_dev)) * roi_thold_mean_frac + ascan_means(ii_dev);
