@@ -66,7 +66,7 @@ for ii_dev=1:numDevices
         aidx = pidx2aidx(pidx);
         % peak-trough rois
         lt = find(troughs(1:aidx, ii_dev), 1, 'last');
-        rt = find(troughs(aidx:end, ii_dev), 1, 'first');
+        rt = aidx - 1 + find(troughs(aidx:end, ii_dev), 1, 'first');
         if isempty(lt)
             lt = 1;
         end

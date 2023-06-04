@@ -134,7 +134,7 @@ for ii = 1:N
     [points, heatmap] = FindTargetsXcorr(combined_Im, floor(target_locs/dx));
     
     % Identify targets in backpropgatation image
-    points2 = FindTargets(numTargets, combined_Im);
+    % points2 = FindTargets(numTargets, combined_Im);
     
     % Self-localize
     [x,z] = calcSenorsPos(target_locs, points);
