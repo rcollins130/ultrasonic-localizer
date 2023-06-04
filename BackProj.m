@@ -19,10 +19,16 @@ function Im = BackProj(data,receiver_locs,source_locs,c,Fs,sizeX,sizeZ)
             for xi = 1:size(X,1)
                 for zi = 1:size(Z,1)
                     Im(zi,xi) = Im(zi,xi)+data(ceil(TimeDelays(zi,xi,i,j)*Fs));
+                    if zi < 30
+                        Im(zi,xi) = 0;
+                    end
+                    angle = atan2d(xi-200,zi);
+                    if angle > 30 | angle < -30
+                        Im(zi,xi) = 0;
+                    end
                 end
             end
         end
     end
-
 end
 

@@ -28,7 +28,7 @@ input_directory = "test_data/Data 5-26/2targ";
 % output_directory = "test_data";
 
 % serial parameters
-serial_port = "/dev/tty.usbmodem2102";
+serial_port = "COM3";
 baud = 1000000; % baud rate
 numMeasures = 5; % captures per sensor
 numDevices = 3; % number of sensors
@@ -74,19 +74,46 @@ title('Sensor A-Scan')
 xlabel('Distance, m')
 
 % Self localization
+% fig3 = figure(3); hold on;
+% fig3l1 = plot(target_locs(:,1), target_locs(:,2), ...
+%     'ro','MarkerFaceColor','r','MarkerSize',5, ...
+%     'DisplayName','Targets');
+% fig3l2 = plot(0,0,'gs','DisplayName', 'Sensors');
+% xlabel('X, m');
+% ylabel('Z, m');
+% xlim([-distMeasure, distMeasure])
+% ylim([-distMeasure, distMeasure])
+% title('Self Localization, m');
+width = 600;
+height = 700;
+widthcm = 600*100*dx;
+
+targetTruthPosCm = [8 138; -3.42 163];
+targetTruthPos = targetTruthPosCm./(dx*100);
+targetTruthPos(:,1) = targetTruthPos(:,1) + width/2;
+sensorPosCm = [0 75];
 fig3 = figure(3); hold on;
-fig3l1 = plot(target_locs(:,1), target_locs(:,2), ...
+set(gcf, 'Color', 'w');
+set(gcf, 'Position', [100 150 500 600]);
+scene = zeros(height,width);
+imagesc(scene);
+fig3l1 = plot(targetTruthPos(:,1), targetTruthPos(:,2), ...
     'ro','MarkerFaceColor','r','MarkerSize',5, ...
     'DisplayName','Targets');
-fig3l2 = plot(0,0,'gs','DisplayName', 'Sensors');
-xlabel('X, m');
-ylabel('Z, m');
-xlim([-distMeasure, distMeasure])
-ylim([-distMeasure, distMeasure])
-title('Self Localization, m');
+% fig3l2 = plot(0,0,'gs','DisplayName', 'Sensors');
+fig3l2 = rectangle('Position', [sensorPosCm(1)+widthcm/2-7 sensorPosCm(2)-2 14 4]./(dx*100))
+axis image;
+set(gca,'fontsize',16)
+title('Scene')
+xlabel('X (cm)')
+ylabel('Z(cm)')
+xticks([1 xticks])
+yticks([1 yticks])
+yticklabels(floor(yticks*dx*100))
+xticklabels(ceil(abs(xticks-width/2)*dx*100))
 
 %% LOCALIZATION LOOP
-N = 100000000;
+N = 10000000;
 for ii = 1:N
     % Capture Ultrasonic Data
     %   AscanData:
@@ -101,7 +128,7 @@ for ii = 1:N
 
     % Preprocess IQ Data
     [ppIQ, scaledAscan, deviceAscan] = preprocess_IQ(AscanData, numTargets);
-
+    %ppIQ = AscanData;
     % Backpropagate to create image
     Im = zeros(400, 400, numDevices);
     for ii_dev = 1:numDevices
@@ -131,26 +158,28 @@ for ii = 1:N
     % TODO: need convention on orientation of XZ coords 
 
     % itentify targets by xcorr method
-    [points, heatmap] = FindTargetsXcorr(combined_Im, floor(target_locs/dx));
+%     [points, heatmap] = FindTargetsXcorr(combined_Im, floor(target_locs/dx));
     
     % Identify targets in backpropgatation image
-    points2 = FindTargets(numTargets, combined_Im);
+    [numFound, points] = FindTargets(numTargets, combined_Im);
     
-    % Self-localize
-    [x,z] = calcSenorsPos(target_locs, points);
-
-    % Update Plots
     fig1img1.CData = combined_Im;
     fig1tp1.XData = points(:,1);
     fig1tp1.YData = points(:,2);
+
+    % Self-localize
+    if numFound == numTargets
+        points(:,1) = points(:,1) + (width-Nx)/2;
+        [x,z] = calcSenorsPos(targetTruthPos, points);
+        sensorPosCm = [x,z].*(dx*100);
+        fig3l2.Position = [sensorPosCm(1)+widthcm/2-7 sensorPosCm(2)-2 14 4]./(dx*100);
+    end
+    % Update Plots
 
     for lidx=1:length(fig2l1)
         fig2l1(lidx).YData = deviceAscan(:,lidx);
         fig2l2(lidx).YData = scaledAscan(:,lidx);
     end
-    
-    fig3l2.XData = x*dx;
-    fig3l2.YData = z*dx;
 
     pause(0.01)
 end

@@ -5,7 +5,7 @@ function [Im_final,points] = TakeMeasurement(numMeasures, numTargets, s)
     distMeasure = 2;
 %     numTargets = 2;
     Im = zeros(400,400,numDevices); % reconstructed image stack
-    [AscanData, params] = GetAscanDataFromCH201(numDevices, numMeasures, distMeasure, s);
+    %[AscanData, params] = GetAscanDataFromCH201(numDevices, numMeasures, distMeasure, s);
     figure;
     for idx = 1:numDevices
         [data_pb, Fs] = upconv(squeeze(AscanData(idx,:,1,:)), squeeze(AscanData(idx,:,2 ...
