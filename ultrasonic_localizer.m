@@ -22,8 +22,8 @@ numTargets = size(target_locs, 1); % number of targets
 
 % capture parameters
 % file data parameters
-data_from_file = 0; % if true, load data from directory instead of serial
-input_directory = "test_data/20230604_150125";
+data_from_file = 1; % if true, load data from directory instead of serial
+input_directory = "test_data/20230604_190328";
 
 data_to_file = 0; % if true, output captured data to directory
 output_directory = "test_data";
@@ -36,20 +36,38 @@ if data_to_file && ~ data_from_file
 end
 
 % serial parameters
-serial_port = "COM3";
+% serial_port = "COM3";
+serial_port = "/dev/tty.usbmodem2102";
 baud = 1000000; % baud rate
 numMeasures = 3; % captures per sensor
 numDevices = length(sensor_locs); % number of sensors
-distMeasure = 2; % maximum distance measurement, matches firmware
+distMeasure = 1.5; % maximum distance measurement, matches firmware
 
 % plotting parameters
 %   these are also defined in some functions, but here because I'm lazy
 % backprop image parameters
 Nx = 400;
-dx = 1.5/Nx;
+backprop_grid_size = 2;
+dx = backprop_grid_size/Nx;
 
 % a scan plot parameters
 d = (1:distMeasure*60)/60;
+
+% localization plot params
+widthcm = 100;
+heightcm = 200;
+width = widthcm/(100*dx);
+height = heightcm/(100*dx);
+%widthcm = 600*100*dx;
+
+targetTruthPosCm = [8 138; -3.42 163];
+targetTruthPos = targetTruthPosCm./(dx*100);
+targetTruthPos(:,1) = targetTruthPos(:,1) + width/2;
+sensorPosCm = [0 75];
+
+tt_pos(1,:) = [0, 0];
+tt_pos(2,:) = targetTruthPosCm(2,:) - targetTruthPosCm(1,:);
+tt_pos_idx = floor(tt_pos / (100 *dx));
 
 %% INITIALIZE SENSOR
 if ~data_from_file
@@ -95,14 +113,7 @@ xlabel('Distance, m')
 % xlim([-distMeasure, distMeasure])
 % ylim([-distMeasure, distMeasure])
 % title('Self Localization, m');
-width = 600;
-height = 700;
-widthcm = 600*100*dx;
 
-targetTruthPosCm = [8 138; -3.42 163];
-targetTruthPos = targetTruthPosCm./(dx*100);
-targetTruthPos(:,1) = targetTruthPos(:,1) + width/2;
-sensorPosCm = [0 75];
 fig3 = figure(3); hold on;
 set(gcf, 'Color', 'w');
 set(gcf, 'Position', [100 150 500 600]);
@@ -112,7 +123,13 @@ fig3l1 = plot(targetTruthPos(:,1), targetTruthPos(:,2), ...
     'ro','MarkerFaceColor','r','MarkerSize',5, ...
     'DisplayName','Targets');
 % fig3l2 = plot(0,0,'gs','DisplayName', 'Sensors');
-fig3l2 = rectangle('Position', [sensorPosCm(1)+widthcm/2-7 sensorPosCm(2)-2 14 4]./(dx*100))
+fig3l2 = rectangle('Position', [sensorPosCm(1)+widthcm/2-7 sensorPosCm(2)-2 14 4]./(dx*100),'FaceColor',[1 1 1]);
+fig3l4 = text(0,0, sprintf("init"), ...
+    'HorizontalAlignment','center', ...
+    'VerticalAlignment','top', ...
+    'FontSize',14, ...
+    'FontWeight','bold', ...
+    'Color','w');
 axis image;
 set(gca,'fontsize',16)
 title('Scene')
@@ -161,8 +178,9 @@ for ii = 1:N
             sensor_locs(ii_dev), ... % source location(s)
             c, ... % speed of sound
             Fs, ... % ?
-            1.5, ... % x, m
-            1.5 ... % z, m
+            backprop_grid_size, ... % x, m
+            backprop_grid_size, ... % z, m
+            Nx ...
             );
     end
     % merge backprop images
@@ -171,10 +189,11 @@ for ii = 1:N
     % TODO: need convention on orientation of XZ coords 
 
     % itentify targets by xcorr method
-%     [points, heatmap] = FindTargetsXcorr(combined_Im, floor(target_locs/dx));
+    numFound = 2;
+    [points, ~, heatmap] = FindTargetsXcorr(combined_Im, tt_pos_idx);
     
     % Identify targets in backpropgatation image
-    [numFound, points] = FindTargets(numTargets, combined_Im);
+    %[numFound, points] = FindTargets(numTargets, combined_Im);
 
     
     fig1img1.CData = combined_Im;
@@ -187,6 +206,8 @@ for ii = 1:N
         [x,z] = calcSenorsPos(targetTruthPos, points);
         sensorPosCm = [x,z].*(dx*100);
         fig3l2.Position = [sensorPosCm(1)+widthcm/2-7 sensorPosCm(2)-2 14 4]./(dx*100);
+        fig3l4.Position = [(sensorPosCm(1)+widthcm/2)./(dx*100), sensorPosCm(2)./(dx*100)-2];
+        fig3l4.String = sprintf("(%0.2f, %0.2f)", sensorPosCm);
     end
     % Update Plots
 

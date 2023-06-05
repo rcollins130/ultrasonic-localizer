@@ -1,7 +1,7 @@
-function Im = BackProj(data,receiver_locs,source_locs,c,Fs,sizeX,sizeZ)
+function Im = BackProj(data,receiver_locs,source_locs,c,Fs,sizeX,sizeZ,Nx)
     % Define Imaging Geometry
-    X = linspace(-sizeX/2,sizeX/2,400);
-    Z = linspace(0,sizeZ, 400);
+    X = linspace(-sizeX/2,sizeX/2,Nx);
+    Z = linspace(0,sizeZ, Nx);
     [X,Z] = meshgrid(X,Z);
 
     % Define Time Delays
@@ -18,14 +18,18 @@ function Im = BackProj(data,receiver_locs,source_locs,c,Fs,sizeX,sizeZ)
         for j = 1:length(source_locs)
             for xi = 1:size(X,1)
                 for zi = 1:size(Z,1)
-                    Im(zi,xi) = Im(zi,xi)+data(ceil(TimeDelays(zi,xi,i,j)*Fs));
+                    idx = ceil(TimeDelays(zi,xi,i,j)*Fs);
+                    if idx <= size(data, 2)
+                        Im(zi,xi) = Im(zi,xi)+data(idx);
+                        
+                    end
                     if zi < 30
                         Im(zi,xi) = 0;
                     end
-                    angle = atan2d(xi-200,zi);
-                    if angle > 30 | angle < -30
-                        Im(zi,xi) = 0;
-                    end
+                    % angle = atan2d(xi-200,zi);
+                    % if angle > 50 | angle < -50
+                    %     Im(zi,xi) = 0;
+                    % end
                 end
             end
         end

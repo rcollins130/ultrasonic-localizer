@@ -48,6 +48,7 @@ peaks = peaks & deviceAscan > 1.25*ascan_means;
 
 % identify regions of interest around peaks
 % [target, [leftbound rightbound], device]
+numTargets = numTargets * 2;
 ascan_rois = zeros(numTargets, 2, numDevices);
 device_maxs = zeros(numDevices, 1);
 for ii_dev=1:numDevices
@@ -130,13 +131,13 @@ for ii_dev=1:numDevices
             ii_mroi = ii_mroi + 1;
         else
             overlap = 0;
-            for jj_mroi = 1:ii_mroi-1
-                that_roi = filtered_rois(jj_mroi,:);
-                if this_pm_roi(1) < that_roi(2) && this_pm_roi(2) > that_roi(1)
-                    overlap = jj_mroi;
-                    continue
-                end
-            end
+            % for jj_mroi = 1:ii_mroi-1
+            %     that_roi = filtered_rois(jj_mroi,:);
+            %     if this_pm_roi(1) < that_roi(2) && this_pm_roi(2) > that_roi(1)
+            %         overlap = jj_mroi;
+            %         continue
+            %     end
+            % end
             if overlap == 0
                 filtered_rois(ii_mroi,:) = this_pt_roi;
                 filt_roi_maxs(ii_mroi) = this_max;
