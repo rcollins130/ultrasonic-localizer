@@ -1,11 +1,10 @@
-function targets = FindTargets(numTargets, Im_final)
+function [numFound, targets] = FindTargets(numTargets, Im_final)
     maxAmp = max(Im_final);
 %     figure;
 %     imagesc(Im_final);
     numFoundTargets = 0;
     thresh = 1;
     %remove ring down artifact
-%     Im_reduced = Im_final .* double(Im_final>maxAmp/thresh);
     while numFoundTargets ~= numTargets & thresh <= 5
         thresh = thresh + 0.2;
         Im_reduced = Im_final .* double(Im_final>maxAmp/thresh);
@@ -15,8 +14,8 @@ function targets = FindTargets(numTargets, Im_final)
 %         figure;
 %         imagesc(Im_red_binary);
     end
-    % figure;
-    % imagesc(Im_red_binary);
+%     figure;
+%     imagesc(Im_red_binary);
     points = zeros(numFoundTargets,3);
     for idx = 1:numFoundTargets
         temp = Im_reduced .* double(Im_red_binary==idx);
@@ -26,10 +25,15 @@ function targets = FindTargets(numTargets, Im_final)
         points(idx, 2) = y;
         points(idx, 3) = Im_final(x,y);
     end
-    [M,I] = sort(points(:,3));
-    I=flip(I);
-    targets = zeros(numTargets,2);
-    targets = points(I(1:numTargets),:);
-    [M,I] = sort(targets(:,2));
-    targets = targets(I,:);
+    if numFoundTargets == numTargets
+        [M,I] = sort(points(:,3));
+        I=flip(I);
+        targets = zeros(numTargets,2);
+        targets = points(I(1:numTargets),:);
+        [M,I] = sort(targets(:,2));
+        targets = targets(I,:);
+    else
+        targets = zeros(numTargets,2);
+    end
+    numFound = numFoundTargets;
 end
