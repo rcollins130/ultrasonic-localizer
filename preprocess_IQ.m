@@ -54,8 +54,6 @@ for ii_dev=1:numDevices
     % mapping of peak indicies to ascan indicies
     % (ascan index) = pidx2aidx(peak index);
     pidx2aidx = find(peaks(:,ii_dev));
-    % get sorted list of peak indicies
-    [peak_vals, pidx_sorted] = sort(deviceAscan(peaks(:,ii_dev),ii_dev),'descend');
 
     % identify bounds of the peak roi, both peak-trough and peak-mean
     % device_rois = zeros(size(pidx2aidx, 1),2);
@@ -64,6 +62,7 @@ for ii_dev=1:numDevices
     for pidx = 1:size(pidx2aidx)
         % A-Scan Index of peak
         aidx = pidx2aidx(pidx);
+
         % peak-trough rois
         lt = find(troughs(1:aidx, ii_dev), 1, 'last');
         rt = aidx - 1 + find(troughs(aidx:end, ii_dev), 1, 'first');
@@ -76,65 +75,94 @@ for ii_dev=1:numDevices
         pt_rois(pidx,1) = lt;
         pt_rois(pidx, 2) = rt;
         
-        % peak-mean rois
+        % peak-mean troughs
         thold = (deviceAscan(aidx) - ascan_means(ii_dev)) * roi_thold_mean_frac + ascan_means(ii_dev);
-        pm_rois(pidx, 1) = ...
-            find(deviceAscan(1:aidx, ii_dev) < thold, 1, 'last');
-        pm_rois(pidx, 2) = aidx - 1 + ...
-            find(deviceAscan(aidx:end, ii_dev) < thold, 1, 'first');
-    end
+        lm = find(deviceAscan(1:aidx, ii_dev) < thold, 1, 'last');
+        rm = aidx - 1 + find(deviceAscan(aidx:end, ii_dev) < thold, 1, 'first');
+        if isempty(lm)
+            lm = 1;
+        end
+        if isempty(rm)
+            rm = size(troughs,1);
+        end
 
-    % merge overlapping rois and sort
-    merged_rois = zeros(size(pm_rois));
+        pm_rois(pidx, 1) = lm;
+        pm_rois(pidx, 2) = rm;
+        % peak-mean rois
+        % thold = (deviceAscan(aidx) - ascan_means(ii_dev)) * roi_thold_mean_frac + ascan_means(ii_dev);
+        % pm_rois(pidx, 1) = ...
+        %     find(deviceAscan(1:aidx, ii_dev) < thold, 1, 'last');
+        % pm_rois(pidx, 2) = aidx - 1 + ...
+        %     find(deviceAscan(aidx:end, ii_dev) < thold, 1, 'first');
+    end
+    
+    % get sorted list of peak indicies
+    % [peak_vals, pidx_sorted] = sort(deviceAscan(peaks(:,ii_dev),ii_dev),'descend');
+
+    % filter overlapping rois and sort
+    filtered_rois = zeros(size(pm_rois));
+    filt_roi_maxs = zeros(size(filtered_rois,1),1);
     % merged_rois_pidx = zeros(size(merged_rois,1),1);
     ii_mroi = 1;
 
     % roi indexing
-    if take_first
-        peak_indicies = 1:size(pidx2aidx);
-    else
-        peak_indicies = pidx_sorted;
-    end
+    % if take_first
+    %     peak_indicies = 1:size(pidx2aidx);
+    % else
+    %     peak_indicies = pidx_sorted;
+    % end
+    
+    peak_indicies = 1:size(pidx2aidx);
 
     % loop thru each peak, largest to smallest
     for ii_peak = 1:length(peak_indicies)
         ii_roi = peak_indicies(ii_peak);
         this_pt_roi = pt_rois(ii_roi, :);
         this_pm_roi = pm_rois(ii_roi, :);
+        
+        this_max = max(deviceAscan(this_pt_roi(1):this_pt_roi(2),ii_dev));
 
         % for now, just taking the pt rois
         if ii_mroi == 1
-            merged_rois(ii_mroi,:) = this_pt_roi;
+            filtered_rois(ii_mroi,:) = this_pt_roi;
+            filt_roi_maxs(ii_mroi) = this_max;
             % merged_rois_pidx(ii_mroi) = ii_roi;
             ii_mroi = ii_mroi + 1;
         else
-            overlap = false;
+            overlap = 0;
             for jj_mroi = 1:ii_mroi-1
-                that_roi = merged_rois(jj_mroi,:);
+                that_roi = filtered_rois(jj_mroi,:);
                 if this_pm_roi(1) < that_roi(2) && this_pm_roi(2) > that_roi(1)
-                    overlap = true;
+                    overlap = jj_mroi;
+                    continue
                 end
             end
-            if ~overlap
-                merged_rois(ii_mroi,:) = this_pt_roi;
+            if overlap == 0
+                filtered_rois(ii_mroi,:) = this_pt_roi;
+                filt_roi_maxs(ii_mroi) = this_max;
                 % merged_rois_pidx(ii_mroi) = ii_roi;
                 ii_mroi = ii_mroi + 1;
+            else
+                if this_max > filt_roi_maxs(overlap)
+                    filtered_rois(overlap,:) = this_pt_roi;
+                    filt_roi_maxs(overlap) = this_max;
+                end
             end
         end
     end
-    
-    % trim merged rois
-    % merged_rois = merged_rois(all(merged_rois ~= 0,2), :);
-    
+    [~,I] = sort(filt_roi_maxs,'descend');
+
     % output best N rois and maximum device value (for scaling)
-    num_rois = min(numTargets,size(merged_rois,1));
-    ascan_rois(1:num_rois,:, ii_dev) = merged_rois(1:num_rois,:);
-    device_maxs(ii_dev) = peak_vals(1);
+    num_rois = min(numTargets,size(filtered_rois,1));
+    ascan_rois(1:num_rois,:, ii_dev) = filtered_rois(I(1:num_rois),:);
+    device_maxs(ii_dev) = filt_roi_maxs(I(1));
 end
 
 %% Mask and Scale Outputs
 scaledIQ = zeros(size(rawIQ));
 scaledAscan = zeros(size(deviceAscan));
+
+device_scalings = device_maxs / max(device_maxs);
 
 idx=1:numSamples;
 for ii_dev = 1:numDevices
@@ -156,7 +184,7 @@ for ii_dev = 1:numDevices
         % add scaled ROI mask to device mask
         device_mask = device_mask + scaled_mask;
     end
-    
+    device_mask = device_mask ./ device_scalings(ii_dev);
     % apply mask to IQ data
     IQ_mask = repmat(reshape(device_mask, 1, 1, numSamples),numMeasures, 2);
     scaledIQ(ii_dev, :,:,:) = squeeze(rawIQ(ii_dev,:,:,:)) .* IQ_mask;
