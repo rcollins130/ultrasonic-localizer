@@ -9,29 +9,37 @@ clear; close all;
 
 % physical parameters
 c = 343; % speed of sound, m
-sensor_locs = [-0.07 0 0.07]; % relative sensor x-locations, m
-target_locs = [0, 0;
-               -0.225, 0.225]; % target [x,z] locations, m
+% sensor_locs = [-0.07 0 0.07]; % relative sensor x-locations, m
+% sensor_locs = [0.12 0 -0.12]; % relative sensor x-locations, m
+sensor_locs = [-.15, -.05, .05, .15];
 
-% test values for canned data
-% test_rel = [25   -52]*0.00375; % test value for relative target offset
-% target_locs = [0,0; test_rel];
-% 
+target_locs = [0, 0;
+               -0.32, 0.32]; % target [x,z] locations, m
+% target_locs = [0, 0;
+%                -0.225, 0.1125]; % target [x,z] locations, m
+
 numTargets = size(target_locs, 1); % number of targets
 
 % capture parameters
 % file data parameters
 data_from_file = 0; % if true, load data from directory instead of serial
-input_directory = "test_data/Data 5-26/2targ";
+input_directory = "test_data/20230604_150125";
 
-% data_to_file = 0; % if true, output captured data to directory (not implemented)
-% output_directory = "test_data";
+data_to_file = 0; % if true, output captured data to directory
+output_directory = "test_data";
+filefmt = "yyyyMMdd_HHmmssSSS";
+dirfmt = "yyyyMMdd_HHmmss";
+
+if data_to_file && ~ data_from_file
+    output_directory = fullfile(output_directory, string(datetime,dirfmt));
+    mkdir(output_directory)
+end
 
 % serial parameters
 serial_port = "COM3";
 baud = 1000000; % baud rate
-numMeasures = 5; % captures per sensor
-numDevices = 3; % number of sensors
+numMeasures = 3; % captures per sensor
+numDevices = length(sensor_locs); % number of sensors
 distMeasure = 2; % maximum distance measurement, matches firmware
 
 % plotting parameters
@@ -64,12 +72,15 @@ xticks([1 xticks])
 yticks([1 yticks])
 yticklabels(floor(yticks*dx*100))
 xticklabels(ceil(abs(xticks-Nx/2)*dx*100))
+set(gca,'YDir','normal')
 
 % A-Scan
 fig2 = figure(2); hold on;
-fig2l1 = plot(d,zeros(size(d,2),numDevices),'LineStyle','--');
-set(gca, 'ColorOrderIndex', 1)
-fig2l2 = plot(d,zeros(size(d,2),numDevices),'LineStyle','-');
+subplot(2,1,1)
+fig2l1 = plot(d,zeros(size(d,2),numDevices),'LineStyle','-');
+% set(gca, 'ColorOrderIndex', 1)
+subplot(2,1,2)
+fig2l2 = plot(d,zeros(size(d,2),numDevices),'LineStyle','-','LineWidth',2);
 title('Sensor A-Scan')
 xlabel('Distance, m')
 
@@ -125,6 +136,8 @@ for ii = 1:N
     else
         [AscanData, params] = GetAscanDataFromCH201(numDevices, numMeasures, distMeasure, s);
     end
+    
+    AscanData = AscanData(:,:,:,1:distMeasure*60);
 
     % Preprocess IQ Data
     [ppIQ, scaledAscan, deviceAscan] = preprocess_IQ(AscanData, numTargets);
@@ -162,6 +175,7 @@ for ii = 1:N
     
     % Identify targets in backpropgatation image
     [numFound, points] = FindTargets(numTargets, combined_Im);
+
     
     fig1img1.CData = combined_Im;
     fig1tp1.XData = points(:,1);
@@ -181,7 +195,11 @@ for ii = 1:N
         fig2l2(lidx).YData = scaledAscan(:,lidx);
     end
 
-    pause(0.01)
+    if data_to_file && ~ data_from_file
+        save(fullfile(output_directory, string(datetime, filefmt)),'AscanData','params')
+    end
+    pause(0.25)
+
 end
 
 %% CLEANUP 
