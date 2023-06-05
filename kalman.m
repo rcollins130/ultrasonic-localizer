@@ -3,16 +3,20 @@ function [x,P] = kalman(x_old,P_old,y)
     R = [15,0;0,3];
     A = [1,0,1,0;0,1,0,1;0,0,1,0;0,0,0,1];
     H = [1,0,0,0;0,1,0,0];
+    qf = 0.001;
+    Q = [qf/3,0,qf/2,0;0,qf/3,0,qf/2;qf/2,0,qf,0;0,qf/2,0,qf];
 
     xp = A*x_old;
-    Pp = A*P_old*A';
+    Pp = A*P_old*A' + Q;
     K = (Pp*H')/(H*Pp*H'+R);
     x_new = xp + K * (y-H*xp);
     P_new = Pp - K*H*Pp;
+    prob = mvncdf(x_new,xp,Pp);
 
-    if mvncdf(x_new,xp,Pp) < 0.05
-        x = x_old;
-        P = P_old;
+    if prob < 0.05
+        %x = [xp(1:2);x_new(3:4)];
+        x = xp + 0.05.*K * (y-H*xp);
+        P = Pp;
     else
         x = x_new;
         P = P_new;
