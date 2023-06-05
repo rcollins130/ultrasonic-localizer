@@ -15,14 +15,15 @@ function [AscanData, params] = GetAscanDataFromCH201(numDevices, numMeasures, di
                 params(dev,measureIdx, :) = sscanf(paramText, template);
                 numSamples = params(dev,measureIdx,4);
                 idx = 1;
-                while idx <= numSamples
-                    input = readline(s);
+                input = readline(s);
+                while idx <= numSamples & input ~= ""
                     IQnum = strsplit(input,',');
                     AscanData(dev, measureIdx, 1, idx) = IQnum(1);
                     AscanData(dev, measureIdx, 2, idx) = IQnum(2);
+                    input = readline(s);
                     idx = idx + 1;
                 end
-                char(readline(s));
+                %char(readline(s));
             end
             measureIdx = measureIdx + 1;
         end
