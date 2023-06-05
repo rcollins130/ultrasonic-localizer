@@ -18,7 +18,8 @@ use_kalman = 0;
 % physical parameters
 c = 343; % speed of sound, m/s
 sensor_locs = [-.15, -.05, .05, .15]; % relative sensor x-locations, m
-sensorPosCmInit = [-30 75]; % initial sensor location in cm
+%sensorPosCmInit = [-30 75]; % initial sensor location in cm
+sensorPosCmInit = [0 0]; % initial sensor location in cm
 
 % route of sensor, in cm
 route = [
@@ -40,6 +41,16 @@ P = [
     0,1000,0,0;
     0,0,1000,0;
     0,0,0,1000];
+
+truthPoints = [
+    -30, 30;
+    30, 30;
+    30, 60;
+    -30, 60;
+    -30, 90;
+    30, 90;
+    30, 120;
+    -30, 120];
 
 % targetTruthPosCm = [8 138; -3.42 163];
 targetTruthPosCm = [8 138; -4 163];
@@ -99,6 +110,8 @@ end
 %% INITIALIZE PLOTS
 % Target Image
 fig1 = figure(1);
+set(gcf, 'Position', [848   704   560   420]);
+
 fig1img1 = imagesc(zeros(Nx,Nx)); hold on;
 fig1tp1 = plot( ...
     zeros(numTargets,1), ...
@@ -116,6 +129,8 @@ set(gca,'YDir','normal')
 
 % A-Scan
 fig2 = figure(2); hold on;
+set(gcf, 'Position', [847   158   560   420]);
+
 subplot(2,1,1)
 fig2l1 = plot(d,zeros(size(d,2),numDevices),'LineStyle','-');
 % set(gca, 'ColorOrderIndex', 1)
@@ -127,7 +142,7 @@ xlabel('Distance, m')
 % Localization
 fig3 = figure(3); hold on;
 set(gcf, 'Color', 'w');
-set(gcf, 'Position', [100 150 500 600]);
+set(gcf, 'Position', [55   142   760   980]);
 % scene = zeros(height,width);
 % imagesc(scene);
 
@@ -135,22 +150,24 @@ fig3l1 = plot(targetTruthPosCm(:,1), targetTruthPosCm(:,2), ...
     'ro','MarkerFaceColor','r','MarkerSize',5, ...
     'DisplayName','Targets');
 
+plot(truthPoints(:,1), truthPoints(:,2),'k');
+
 fig3l2 = rectangle('Position', [sensorPosCmInit(1)-7 sensorPosCmInit(2)-2 14 4],'FaceColor','r');
-fig3l3 = plot((sensorPosCmInit(1)), sensorPosCmInit(2), '*');
-tempPosPrev = sensorPosCmInit;
-for idx = 1:size(route,1)
-    tempPos(1) = tempPosPrev(1) + route(idx,1);
-    tempPos(2) = tempPosPrev(2) + route(idx,2);
-    hold on
-    line(([tempPosPrev(1) tempPos(1)]), [tempPosPrev(2) tempPos(2)]);
-    hold off
-    tempPosPrev = tempPos;
-end
-    
+fig3l3 = plot((sensorPosCmInit(1)), sensorPosCmInit(2), 'bo');
+% tempPosPrev = sensorPosCmInit;
+% for idx = 1:size(route,1)
+%     tempPos(1) = tempPosPrev(1) + route(idx,1);
+%     tempPos(2) = tempPosPrev(2) + route(idx,2);
+%     hold on
+%     line(([tempPosPrev(1) tempPos(1)]), [tempPosPrev(2) tempPos(2)]);
+%     hold off
+%     tempPosPrev = tempPos;
+% end
+
 fig3l4 = text(0,0, sprintf("init"), ...
     'HorizontalAlignment','center', ...
     'VerticalAlignment','top', ...
-    'FontSize',14, ...
+    'FontSize',20, ...
     'FontWeight','bold', ...
     'Color','k');
 axis image;
@@ -161,6 +178,7 @@ ylabel('Z(cm)')
 
 ylim([0,heightcm]);
 xlim([-widthcm/2, widthcm/2]);
+lastPos = [nan, nan];
 
 %% LOCALIZATION LOOP
 N = 10000000;
@@ -256,9 +274,16 @@ for ii = 1:N
 % %         fig3l3.YData = sensorPosCm(2)/(dx*100);
 %         hold off;
         % line(([tempPosPrev(1) tempPos(1)]+widthcm/2)./(dx*100), [tempPosPrev(2) tempPos(2)]/(dx*100));
+        if ~any(isnan(lastPos))
+            plot([lastPos(1),  sensorPosCm(1)], [lastPos(2), sensorPosCm(2)],'b');
+        end
+        fig3l3.XData = sensorPosCm(1);
+        fig3l3.YData = sensorPosCm(2);
         fig3l2.Position = [sensorPosCm(1)-7 sensorPosCm(2)-2 14 4];
         fig3l4.Position = [sensorPosCm(1), sensorPosCm(2)-2];
-        fig3l4.String = sprintf("(%0.2f, %0.2f)", sensorPosCm);
+        fig3l4.String = sprintf("(%0.1f, %0.1f)", sensorPosCm);
+
+        lastPos = sensorPosCm;
     end
     % Update Plots
 
