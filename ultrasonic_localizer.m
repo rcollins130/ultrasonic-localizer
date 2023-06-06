@@ -8,8 +8,8 @@
 clear; close all;
 
 % CAPTUTRE OPTIONS
-data_from_file = 0; % if true, load data from directory instead of serial
-data_to_file = 0; % if true, output captured data to directory
+data_from_file = 1; % if true, load data from directory instead of serial
+data_to_file = 1; % if true, output captured data to directory
 use_preprocess = 0; % if true, localized based on preprocessed IQ data
 use_xcorr = 1; % if true, localize using xcorr method
 
@@ -43,14 +43,14 @@ P = [
     0,0,0,1000];
 
 truthPoints = [
-    -30, 30;
-    30, 30;
-    30, 60;
-    -30, 60;
-    -30, 90;
-    30, 90;
-    30, 120;
-    -30, 120];
+    -20    30
+    20    30
+    20    60
+   -20    60
+   -20    90
+    20    90
+    20   120
+   -20   120];
 
 % targetTruthPosCm = [8 138; -3.42 163];
 targetTruthPosCm = [8 138; -4 163];
@@ -60,25 +60,25 @@ numTargets = size(targetTruthPosCm, 1); % number of targets
 
 % capture parameters
 % file data parameters
-input_directory = "test_data/20230604_190328";
+input_directory = "test_data/20230605_153646";
 
 output_directory = "test_data";
 filefmt = "yyyyMMdd_HHmmssSSS";
 dirfmt = "yyyyMMdd_HHmmss";
 
-if data_to_file && ~ data_from_file
+if data_to_file && ~data_from_file
     output_directory = fullfile(output_directory, string(datetime,dirfmt));
     mkdir(output_directory)
 end
 
 % serial parameters
 if ismac
-    serial_port = "/dev/tty.usbmodem102";
+    serial_port = "/dev/tty.usbmodem2102";
 else
     serial_port = "COM3";
 end
 baud = 1000000; % baud rate
-numMeasures = 3; % captures per sensor
+numMeasures = 5; % captures per sensor
 numDevices = length(sensor_locs); % number of sensors
 distMeasure = 2; % maximum distance measurement, matches firmware, m
 
@@ -295,7 +295,7 @@ for ii = 1:N
     if data_to_file && ~ data_from_file
         save(fullfile(output_directory, string(datetime, filefmt)),'AscanData','params')
     end
-    pause(0.25)
+    pause(0.01)
 
 end
 
