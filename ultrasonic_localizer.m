@@ -10,6 +10,7 @@ clear; close all;
 % CAPTUTRE OPTIONS
 data_from_file = 1; % if true, load data from directory instead of serial
 data_to_file = 1; % if true, output captured data to directory
+save_movie = 1;
 use_preprocess = 0; % if true, localized based on preprocessed IQ data
 use_xcorr = 1; % if true, localize using xcorr method
 
@@ -60,15 +61,21 @@ numTargets = size(targetTruthPosCm, 1); % number of targets
 
 % capture parameters
 % file data parameters
-input_directory = "test_data/20230605_153646";
+input_directory = "test_data/20230605_151542";
 
 output_directory = "test_data";
+movie_directory = "media";
+movie_name = "20230605_151542";
 filefmt = "yyyyMMdd_HHmmssSSS";
 dirfmt = "yyyyMMdd_HHmmss";
 
 if data_to_file && ~data_from_file
     output_directory = fullfile(output_directory, string(datetime,dirfmt));
     mkdir(output_directory)
+end
+
+if save_movie
+    mkdir(movie_directory)
 end
 
 % serial parameters
@@ -109,8 +116,10 @@ end
 
 %% INITIALIZE PLOTS
 % Target Image
-fig1 = figure(1);
-set(gcf, 'Position', [848   704   560   420]);
+fig1 = figure(1); clf;
+subplot(2,2,2); 
+set(gcf, 'Position', [1071         327         981         818]);
+set(gcf, 'Color', 'w');
 
 fig1img1 = imagesc(zeros(Nx,Nx)); hold on;
 fig1tp1 = plot( ...
@@ -128,21 +137,22 @@ xticklabels(ceil(abs(xticks-Nx/2)*dx*100))
 set(gca,'YDir','normal')
 
 % A-Scan
-fig2 = figure(2); hold on;
-set(gcf, 'Position', [847   158   560   420]);
+% fig2 = figure(2); hold on;
+% set(gcf, 'Position', [847   158   560   420]);
 
-subplot(2,1,1)
+subplot(4,2,6); hold on;
 fig2l1 = plot(d,zeros(size(d,2),numDevices),'LineStyle','-');
+title('Raw A-Scan')
 % set(gca, 'ColorOrderIndex', 1)
-subplot(2,1,2)
+subplot(4,2,8)
 fig2l2 = plot(d,zeros(size(d,2),numDevices),'LineStyle','-','LineWidth',2);
-title('Sensor A-Scan')
+title('Filtered A-Scan')
 xlabel('Distance, m')
 
 % Localization
-fig3 = figure(3); hold on;
-set(gcf, 'Color', 'w');
-set(gcf, 'Position', [55   142   760   980]);
+% fig3 = figure(3); hold on;
+subplot(1,2,1); hold on;
+%set(gcf, 'Position', [55   142   760   980]);
 % scene = zeros(height,width);
 % imagesc(scene);
 
@@ -181,7 +191,18 @@ xlim([-widthcm/2, widthcm/2]);
 lastPos = [nan, nan];
 
 %% LOCALIZATION LOOP
-N = 10000000;
+if data_from_file
+    d = dir(fullfile(input_directory,"*.mat"));
+    N = size(d,1);
+else
+    N = 1000;
+end
+
+% if save_movie
+%     f = getframe(gcf);
+%     f = zeros([size(f,1),size(f,2),N]);
+% end
+
 for ii = 1:N
     % Capture Ultrasonic Data
     %   AscanData:
@@ -240,7 +261,7 @@ for ii = 1:N
         % Identify targets in backpropgatation image
         [numFound, points] = FindTargets(numTargets, combined_Im);
     end
-
+    
     % update point plots
     fig1img1.CData = combined_Im;
     fig1tp1.XData = points(:,1);
@@ -295,8 +316,22 @@ for ii = 1:N
     if data_to_file && ~ data_from_file
         save(fullfile(output_directory, string(datetime, filefmt)),'AscanData','params')
     end
+
+    if save_movie
+        f(ii) = getframe(gcf);
+    end
     pause(0.01)
 
+end
+
+if save_movie
+    mp = fullfile(movie_directory, movie_name);
+    v = VideoWriter(mp,"MPEG-4");
+    v.FrameRate = 10;
+    open(v)
+    writeVideo(v,f)
+    close(v)
+    %clear f 
 end
 
 %% CLEANUP 
